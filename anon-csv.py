@@ -2,6 +2,9 @@ import pandas as pd
 import argparse
 import hashlib, binascii, base64
 import sys
+import time
+import string
+import random
 
 #
 # Argument Parsing
@@ -9,18 +12,57 @@ import sys
 parser = argparse.ArgumentParser(description='Project specific anonymization of NetIDs.')
 
 parser.add_argument('-s', '--secret',
-  action='store', dest='secret', required=True,
-  help='Project-specific feature (required)'
+  action='store', dest='secret',
+  help='Project-specific secret string'
+)
+
+parser.add_argument('-S', '--secretFile',
+  action='store', dest='secretFile',
+  help='Project-specific secret filename'
 )
 
 parser.add_argument('inputFile', action='store')
 
 args = parser.parse_args()
 inputFile = args.inputFile
-secret = args.secret
 
-sys.stderr.write(f'Processing "{inputFile}"...\n')
-sys.stderr.write(f'- Using project-specific secret: "{secret}"\n')
+if args.secret and args.secretFile:
+  sys.stderr.write(f'A single secret (-s) or secretFile (-S) must be specified, not both.\n')
+  sys.exit(1)
+
+elif not args.secret and not args.secretFile:
+  # Generate a random string, from https://pythontips.com/2013/07/28/generating-a-random-string/
+  def random_generator(size=6, chars=string.ascii_letters + string.digits):
+    return ''.join(random.choice(chars) for x in range(size))
+
+  secret = random_generator(32)
+  timestamp  = int(round(time.time() * 1000))
+  secretFile = f'secret-{timestamp}.txt'
+  with open(secretFile, 'w') as f:
+    f.write(secret)
+
+  sys.stderr.write(f'== NO SECRET PROVIDED ==\n')
+  sys.stderr.write(f'No secret (-s) or secretFile (-S) was provided.  A new secret was generated.\n')
+  sys.stderr.write(f'- A secret is REQUIRED to create a unique, project-specific mapping of an\n' +
+                   f'  identity to an anonymous identity.\n')
+  sys.stderr.write(f'- You MUST provide the same secret to map the same identity to the same\n' +
+                   f'  anonymous identity at a later time.  A different secret will map the\n' +
+                   f'  same identity to a different anonymous identity.\n')
+  sys.stderr.write(f'- Keep your secret SECURE.  The secret can be used to guess-and-check\n' +
+                   f'  to uncover the identity of an anonymous identifier.\n')
+  sys.stderr.write(f'\n')
+  sys.stderr.write(f'Your randomly generated secret (-s) is: `{secret}`.\n')
+  sys.stderr.write(f'Your secret has been saved to the file (-S): `{secretFile}`.\n')
+  sys.stderr.write(f'\n')
+
+elif args.secret:
+  secret = args.secret
+  
+else: #args.secretFile:
+  with open(args.secretFile, 'r') as f:
+    secret = f.read()
+  
+sys.stderr.write(f'Processing `{inputFile}`...\n')
 
 
 #
